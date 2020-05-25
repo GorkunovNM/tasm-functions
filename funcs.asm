@@ -25,7 +25,7 @@ Memchr          macro
 ; Entry:     di - & of start pos
 ;            al - byte to fill
 ;            cx - number of filling bytes
-; Exit:        
+; Exit:      
 ; Destr:     cx, di
 ;=====================================================
 
@@ -51,33 +51,6 @@ Memcpy          macro
                 rep movsb
 
                 endm
-
-;=====================================================
-; Cmp first and second pieces of mem
-; Entry:     di - & of start pos in first
-;            si - & of start pos in second
-;            cx - number of comparing bytes
-; Exit:      ax is first ne char1 - first ne char2
-; Destr:     cx, di
-;=====================================================
-
-Memcmp          macro
-                
-                cld
-                repe cmpsb
-                jne @@Notequ
-@@Equ:          xor ax, ax
-
-                ret
-                endp                          ; return
-
-@@Notequ:       dec si
-                dec di
-                mov ax, [si]
-                sub ax, [di]
-
-                endm
-
 ;-----------------------------------------------------
 
 Start:          mov al, 'l'
@@ -89,8 +62,12 @@ Start:          mov al, 'l'
                 ;call Memcmp
                 ;pop di
                 ;call Strchr
+                ;call Strrchr
+                ;call Strcpy
+                ;mov di, si
                 ;call Strprnt
-                Memchr
+                ;Memchr
+                ;call Strlen
 
                 mov ah, 02h    
                 mov dl, [di]
@@ -101,44 +78,141 @@ Start:          mov al, 'l'
                 ret                           ; return 0
 
 ;=====================================================
-; Find first char = al
-; Entry:     di - & of first byte of string
-;            al - char to find
-; Exit:      di is & of finding char
-; Destr:    
+; Cmp first and second pieces of mem
+; Entry:     di - & of start pos in first
+;            si - & of start pos in second
+;            cx - number of comparing bytes
+; Exit:      ax is first !equ char1 - first !equ char2
+;                            (=0 if equ, != 0 if !equ)
+; Destr:     cx, di
 ;=====================================================
 
-Strchr          proc
+Memcmp          proc
                 
-                dec di                        ; --di
-@@Until_nch:    inc di                        ; ++di
-                cmp byte ptr [di], al         ;
-                jne @@Until_nch               ; if ([di] != al) {goto @@Until_nch}
+                cld
+                repe cmpsb
+                jne @@Notequ
+@@Equ:          xor ax, ax
+
+                ret                           ; return
+
+@@Notequ:       dec si
+                dec di
+                mov ax, [si]
+                sub ax, [di]
+
+                ret
+                endp                          ; return
+
+;=====================================================
+; Returns length of string
+; Entry:     di - & of first byte of string
+; Exit:      cx - length of string
+; Destr:     al, di
+;=====================================================
+
+Strlen          proc
+                
+                xor cx, cx
+                dec cx
+                xor al, al
+                cld
+                repne scasb
+                not cx
+                dec cx
 
                 ret
                 endp
 
 ;=====================================================
-; Find last char = al
-; Entry:     di - & of first byte of string
-;            al - char to find
-; Exit:      si is & of finding char
-; Destr:     di
+; Find first char = ah
+; Entry:     si - & of first byte of string
+;            ah - char to find
+; Exit:      si is & of finding char or 0, if !found
+; Destr:     al, cx
+;=====================================================
+
+Strchr          proc
+                
+                xor cx, cx
+                dec cx
+
+@@Loop:         cld
+                lodsb
+                cmp al, ah
+                je @@Ret
+                cmp al, 0h
+                je @@E404
+                loop @@Loop
+
+@@E404:         xor si, si
+
+@@Ret:          ret
+                endp
+
+;=====================================================
+; Find last char = ah
+; Entry:     si - & of first byte of string
+;            ah - char to find
+; Exit:      di is & of finding char or 0, if !found
+; Destr:     al, cx, si
 ;=====================================================
 
 Strrchr         proc
                 
-                dec di                        ; --di
-@@Until_nch:    inc di                        ; ++di
-                cmp byte ptr [di], al         ;
-                je @@Take_it
-                jmp @@Dont_take                
+                xor cx, cx
+                dec cx
+                xor di, di
 
-@@Take_it:      mov si, di                    ; si = di
-                jmp @@Dont_take    
+@@Saved:        mov di, si
 
-@@Dont_take:    cmp byte ptr [di], 0h         ;
-                jne @@Until_nch               ; if ([di] != 0h) {goto @@Until_nch}
+@@Loop:         cld
+                lodsb
+                cmp al, ah
+                je @@Saved
+                cmp al, 0h
+                je @@Ret
+                loop @@Loop
+
+@@Ret:          ret
+                endp
+
+;=====================================================
+; Copy second string to first
+; Entry:     si - & of first byte of first string
+;            di - & of first byte of second string
+; Exit:      
+; Destr:     si, di, cx, ax, bx
+;=====================================================
+
+Strcpy          proc
+                
+                mov ax, si
+                mov bx, di
+                call Strlen
+                mov di, ax
+                mov si, bx
+                cld
+                rep movsb
+
+                ret
+                endp
+
+;=====================================================
+; Compare second string with first
+; Entry:     si - & of first byte of first string
+;            di - & of first byte of second string
+; Exit:      
+; Destr:     si, di, cx, ax
+;=====================================================
+
+Strcmp          proc
+                
+                mov ax, di
+                call Strlen
+                mov di, ax
+                cld
+                repe cmpsb
 
                 ret
                 endp
